@@ -2,13 +2,13 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>4 Model Rotation Switch</title>
+  <title>Model + Color Dual Control</title>
 
   <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 
   <script>
-    // MATERIAL (same as your working one)
+    // MATERIAL
     AFRAME.registerComponent('architect-filters', {
       schema: {
         color: {type: 'color', default: '#ffffff'},
@@ -31,35 +31,68 @@
       }
     });
 
-    // ROTATION SWITCH
-    AFRAME.registerComponent('rotation-model-switch', {
+    // MAIN SYSTEM
+    AFRAME.registerComponent('dual-control', {
       tick: function () {
-        const marker = document.querySelector('#mainMarker');
 
-        if (!marker || !marker.object3D.visible) return;
+        const markerModel = document.querySelector('#mainMarker');
+        const markerColor = document.querySelector('#colorMarker');
 
-        // --- GET ROTATION ---
-        const vector = new THREE.Vector3(0, 0, 1);
-        vector.applyQuaternion(marker.object3D.quaternion);
+        if (!markerModel || !markerModel.object3D.visible) return;
 
-        let angle = Math.atan2(vector.x, vector.z) * (180 / Math.PI);
-        angle = (angle + 360) % 360;
+        // -------------------------
+        // 1. MODEL SWITCH (your code)
+        // -------------------------
+        const v1 = new THREE.Vector3(0, 0, 1);
+        v1.applyQuaternion(markerModel.object3D.quaternion);
 
-        // --- SELECT MODEL ---
+        let angle1 = Math.atan2(v1.x, v1.z) * (180 / Math.PI);
+        angle1 = (angle1 + 360) % 360;
+
         let activeId;
-        if (angle >= 315 || angle < 45) activeId = 'model1';
-        else if (angle >= 45 && angle < 135) activeId = 'model2';
-        else if (angle >= 135 && angle < 225) activeId = 'model3';
+        if (angle1 >= 315 || angle1 < 45) activeId = 'model1';
+        else if (angle1 < 135) activeId = 'model2';
+        else if (angle1 < 225) activeId = 'model3';
         else activeId = 'model4';
 
-        // --- SHOW ONLY ONE MODEL ---
-        const models = ['model1', 'model2', 'model3', 'model4'];
+        const models = ['model1','model2','model3','model4'];
         models.forEach(id => {
           const el = document.querySelector('#' + id);
           if (el) el.object3D.visible = (id === activeId);
         });
 
-        console.log("Angle:", angle.toFixed(0), "Active:", activeId);
+        const activeModel = document.querySelector('#' + activeId);
+        if (!activeModel) return;
+
+        // -------------------------
+        // 2. COLOR SWITCH (NEW)
+        // -------------------------
+        if (!markerColor || !markerColor.object3D.visible) return;
+
+        const v2 = new THREE.Vector3(0, 0, 1);
+        v2.applyQuaternion(markerColor.object3D.quaternion);
+
+        let angle2 = Math.atan2(v2.x, v2.z) * (180 / Math.PI);
+        angle2 = (angle2 + 360) % 360;
+
+        let color;
+        if (angle2 >= 315 || angle2 < 45) color = '#FFFFFF'; // white
+        else if (angle2 < 135) color = '#1976D2'; // blue
+        else if (angle2 < 225) color = '#FF00FF'; // pink
+        else color = '#444444'; // grey
+
+        // -------------------------
+        // 3. APPLY COLOR
+        // -------------------------
+        const mesh = activeModel.getObject3D('mesh');
+        if (!mesh) return;
+
+        mesh.traverse((node) => {
+          if (node.isMesh) {
+            node.material.color.set(color);
+          }
+        });
+
       }
     });
   </script>
@@ -68,52 +101,25 @@
 <body style="margin:0; overflow:hidden;">
   <a-scene embedded 
            arjs="sourceType: webcam; debugUIEnabled: false; patternRatio: 0.7;"
-           rotation-model-switch>
+           dual-control>
 
     <!-- LIGHT -->
     <a-entity light="type: ambient; intensity: 0.8;"></a-entity>
     <a-entity light="type: directional; intensity: 1.0;" position="1 4 2"></a-entity>
 
-    <!-- SINGLE MARKER -->
+    <!-- MODEL MARKER -->
     <a-marker id="mainMarker" type="pattern" url="pattern-illum.patt">
 
-      <!-- MODEL 1 -->
-      <a-entity id="model1"
-        gltf-model="url(cone.glb)"
-        scale="12 12 12"
-        position="0 0 0"
-        visible="false"
-        architect-filters="color: #ffffff; opacity: 0.9">
-      </a-entity>
+      <a-entity id="model1" gltf-model="url(cone.glb)" scale="12 12 12" visible="false" architect-filters></a-entity>
+      <a-entity id="model2" gltf-model="url(stair.glb)" scale="12 12 12" visible="false" architect-filters></a-entity>
+      <a-entity id="model3" gltf-model="url(wall.glb)" scale="12 12 12" visible="false" architect-filters></a-entity>
+      <a-entity id="model4" gltf-model="url(window.glb)" scale="12 12 12" position="0 3 0" rotation="0 90 0" visible="false" architect-filters></a-entity>
 
-      <!-- MODEL 2 -->
-      <a-entity id="model2"
-        gltf-model="url(stair.glb)"
-        scale="12 12 12"
-        position="0 0 0"
-        visible="false"
-        architect-filters="color: #ffffff; opacity: 0.9">
-      </a-entity>
+    </a-marker>
 
-      <!-- MODEL 3 -->
-      <a-entity id="model3"
-        gltf-model="url(wall.glb)"
-        scale="12 12 12"
-        position="0 0 0"
-        visible="false"
-        architect-filters="color: #ffffff; opacity: 0.9">
-      </a-entity>
-
-      <!-- MODEL 4 -->
-      <a-entity id="model4"
-        gltf-model="url(window.glb)"
-        scale="12 12 12"
-        position="0 3 0"
-        rotation="0 90 0"
-        visible="false"
-        architect-filters="color: #ffffff; opacity: 0.9">
-      </a-entity>
-
+    <!-- COLOR MARKER -->
+    <a-marker id="colorMarker" type="pattern" url="pattern-texture.patt">
+      <a-box position="0 0 -0.5" scale="0.1 0.1 0.5" color="red"></a-box>
     </a-marker>
 
     <a-entity camera></a-entity>
