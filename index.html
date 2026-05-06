@@ -1,128 +1,120 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>Model + Color Dual Control</title>
+    <meta charset="utf-8">
+    <title>Model + Color Dual Control</title>
 
-  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 
-  <script>
-    // MATERIAL
+    <script>
+    // MATERIAL COMPONENT
     AFRAME.registerComponent('architect-filters', {
-      schema: {
-        color: {type: 'color', default: '#ffffff'},
-        opacity: {type: 'number', default: 1.0}
-      },
-      init: function () {
-        this.el.addEventListener('model-loaded', () => {
-          const mesh = this.el.getObject3D('mesh');
-          if (!mesh) return;
-          mesh.traverse((node) => {
-            if (node.isMesh) {
-              node.material.transparent = true;
-              node.material.opacity = this.data.opacity;
-              node.material.color.set(this.data.color);
-              node.material.roughness = 0.7;
-              node.material.metalness = 0.2;
-            }
-          });
-        });
-      }
+        schema: {
+            color: {type: 'color', default: '#ffffff'},
+            opacity: {type: 'number', default: 0.6} // Default transparency set here
+        },
+        init: function () {
+            this.el.addEventListener('model-loaded', () => {
+                const mesh = this.el.getObject3D('mesh');
+                if (!mesh) return;
+                mesh.traverse((node) => {
+                    if (node.isMesh) {
+                        node.material.transparent = true;
+                        node.material.opacity = this.data.opacity;
+                        node.material.color.set(this.data.color);
+                        node.material.roughness = 0.7;
+                        node.material.metalness = 0.2;
+                    }
+                });
+            });
+        }
     });
 
     // MAIN SYSTEM
     AFRAME.registerComponent('dual-control', {
-      tick: function () {
+        tick: function () {
+            const markerModel = document.querySelector('#mainMarker');
+            const markerColor = document.querySelector('#colorMarker');
 
-        const markerModel = document.querySelector('#mainMarker');
-        const markerColor = document.querySelector('#colorMarker');
+            if (!markerModel || !markerModel.object3D.visible) return;
 
-        if (!markerModel || !markerModel.object3D.visible) return;
+            // 1. MODEL SWITCH
+            const v1 = new THREE.Vector3(0, 0, 1);
+            v1.applyQuaternion(markerModel.object3D.quaternion);
 
-        // -------------------------
-        // 1. MODEL SWITCH (your code)
-        // -------------------------
-        const v1 = new THREE.Vector3(0, 0, 1);
-        v1.applyQuaternion(markerModel.object3D.quaternion);
+            let angle1 = Math.atan2(v1.x, v1.z) * (180 / Math.PI);
+            angle1 = (angle1 + 360) % 360;
 
-        let angle1 = Math.atan2(v1.x, v1.z) * (180 / Math.PI);
-        angle1 = (angle1 + 360) % 360;
+            let activeId;
+            if (angle1 >= 315 || angle1 < 45) activeId = 'model1';
+            else if (angle1 < 135) activeId = 'model2';
+            else if (angle1 < 225) activeId = 'model3';
+            else activeId = 'model4';
 
-        let activeId;
-        if (angle1 >= 315 || angle1 < 45) activeId = 'model1';
-        else if (angle1 < 135) activeId = 'model2';
-        else if (angle1 < 225) activeId = 'model3';
-        else activeId = 'model4';
+            const models = ['model1','model2','model3','model4'];
+            models.forEach(id => {
+                const el = document.querySelector('#' + id);
+                if (el) el.object3D.visible = (id === activeId);
+            });
 
-        const models = ['model1','model2','model3','model4'];
-        models.forEach(id => {
-          const el = document.querySelector('#' + id);
-          if (el) el.object3D.visible = (id === activeId);
-        });
+            const activeModel = document.querySelector('#' + activeId);
+            if (!activeModel) return;
 
-        const activeModel = document.querySelector('#' + activeId);
-        if (!activeModel) return;
+            // 2. COLOR SWITCH 
+            // If the color marker isn't visible, we keep the last color or default to white
+            let color = '#FFFFFF'; 
+            if (markerColor && markerColor.object3D.visible) {
+                const v2 = new THREE.Vector3(0, 0, 1);
+                v2.applyQuaternion(markerColor.object3D.quaternion);
 
-        // -------------------------
-        // 2. COLOR SWITCH (NEW)
-        // -------------------------
-        if (!markerColor || !markerColor.object3D.visible) return;
+                let angle2 = Math.atan2(v2.x, v2.z) * (180 / Math.PI);
+                angle2 = (angle2 + 360) % 360;
 
-        const v2 = new THREE.Vector3(0, 0, 1);
-        v2.applyQuaternion(markerColor.object3D.quaternion);
+                if (angle2 >= 315 || angle2 < 45) color = '#FFFFFF';
+                else if (angle2 < 135) color = '#355edb'; // Blue
+                else if (angle2 < 225) color = '#db35cb'; // Pink
+                else color = '#ae35db'; // Purple (Updated to match your theme)
+            }
 
-        let angle2 = Math.atan2(v2.x, v2.z) * (180 / Math.PI);
-        angle2 = (angle2 + 360) % 360;
+            // 3. APPLY COLOR & TRANSPARENCY
+            const mesh = activeModel.getObject3D('mesh');
+            if (!mesh) return;
 
-        let color;
-        if (angle2 >= 315 || angle2 < 45) color = '#FFFFFF'; // white
-        else if (angle2 < 135) color = '#355edb'; // blue
-        else if (angle2 < 225) color = '#db35cb'; // pink
-        else color = '#444444'; // grey
-
-        // -------------------------
-        // 3. APPLY COLOR
-        // -------------------------
-        const mesh = activeModel.getObject3D('mesh');
-        if (!mesh) return;
-
-        mesh.traverse((node) => {
-          if (node.isMesh) {
-            node.material.color.set(color);
-          }
-        });
-
-      }
+            mesh.traverse((node) => {
+                if (node.isMesh) {
+                    node.material.transparent = true;
+                    node.material.opacity = 0.6; // CONTROL TRANSPARENCY HERE (0.0 to 1.0)
+                    node.material.color.set(color);
+                }
+            });
+        }
     });
-  </script>
+    </script>
 </head>
 
 <body style="margin:0; overflow:hidden;">
-  <a-scene embedded 
-           arjs="sourceType: webcam; debugUIEnabled: false; patternRatio: 0.7;"
-           dual-control>
+    <a-scene embedded 
+             arjs="sourceType: webcam; debugUIEnabled: false; patternRatio: 0.7;"
+             dual-control>
 
-    <!-- LIGHT -->
-    <a-entity light="type: ambient; intensity: 0.8;"></a-entity>
-    <a-entity light="type: directional; intensity: 1.0;" position="1 4 2"></a-entity>
+        <a-entity light="type: ambient; intensity: 0.8;"></a-entity>
+        <a-entity light="type: directional; intensity: 1.0;" position="1 4 2"></a-entity>
 
-    <!-- MODEL MARKER -->
-    <a-marker id="mainMarker" type="pattern" url="pattern-boundary1.patt">
+        <!-- MODEL MARKER -->
+        <a-marker id="mainMarker" type="pattern" url="pattern-boundary1.patt">
+            <a-entity id="model1" gltf-model="url(flat_wall.glb)" scale="12 12 12" visible="false" architect-filters></a-entity>
+            <a-entity id="model2" gltf-model="url(wall.glb)" scale="12 12 12" visible="false" architect-filters></a-entity>
+            <a-entity id="model3" gltf-model="url(wall_roof.glb)" scale="12 12 12" visible="false" architect-filters></a-entity>
+            <a-entity id="model4" gltf-model="url(wall_T_roof.glb)" scale="12 12 12" visible="false" architect-filters></a-entity>
+        </a-marker>
 
-      <a-entity id="model1" gltf-model="url(flat_wall.glb)" scale="12 12 12" visible="false" architect-filters></a-entity>
-      <a-entity id="model2" gltf-model="url(wall.glb)" scale="12 12 12" visible="false" architect-filters></a-entity>
-      <a-entity id="model3" gltf-model="url(wall_roof.glb)" scale="12 12 12" visible="false" architect-filters></a-entity>
-      <a-entity id="model4" gltf-model="url(wall_T_roof.glb)" scale="12 12 12" position="0 0 0" rotation="0 0 0" visible="false" architect-filters></a-entity>
+        <!-- COLOR MARKER -->
+        <a-marker id="colorMarker" type="pattern" url="pattern-switch1.patt">
+            <a-box position="0 0 0" scale="0.2 0.2 0.2" color="white" opacity="0.5"></a-box>
+        </a-marker>
 
-    </a-marker>
-
-    <!-- COLOR MARKER -->
-    <a-marker id="colorMarker" type="pattern" url="pattern-switch1.patt">
-      <a-box position="0 0 -0.5" scale="0.1 0.1 0.5" color="red"></a-box>
-    </a-marker>
-
-    <a-entity camera></a-entity>
-  </a-scene>
+        <a-entity camera></a-entity>
+    </a-scene>
 </body>
 </html>
